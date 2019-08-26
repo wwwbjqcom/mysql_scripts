@@ -63,7 +63,7 @@ class TcpClient(PreparPacket):
 
         self.client=socket(AF_INET, SOCK_STREAM)
         self.client.connect(self.ADDR)
-        self.client.settimeout(1)
+        self.client.settimeout(0.1)
 
         self.server_packet_info = {}
 
@@ -72,12 +72,21 @@ class TcpClient(PreparPacket):
         self.column_info = []
         self.values = []
     def header(self,offset=None):
+        """
+        处理包头部分
+        :param offset:
+        :return:
+        """
         self.offset = offset if offset else 0
         self.payload_length = self.packet[self.offset+2] << 16 | self.packet[self.offset+1] << 8 | self.packet[self.offset]
         self.seq_id = self.packet[self.offset+3]
         self.offset += 4
 
     def check_packet(self):
+        """
+        检查连接时返回数据包类型
+        :return:
+        """
         packet_header = self.packet[self.offset]
         self.offset += 1
         if packet_header == 0x00:
@@ -117,6 +126,10 @@ class TcpClient(PreparPacket):
 
 
     def __authswitchrequest(self):
+        """
+        服务端通知客户端连接方式更改(Protocol::AuthSwitchRequest)，重新组装验证方法
+        :return:
+        """
         end_pos = self.packet.find(b'\0', self.offset)
         auth_name = self.packet[self.offset:end_pos].decode()
 
@@ -130,6 +143,10 @@ class TcpClient(PreparPacket):
 
 
     def __read_server_info(self):
+        """
+        解析Protocol::Handshake数据包
+        :return:
+        """
         PLUGIN_AUTH = 1 << 19
         #数据包内容
         self.server_packet_info['packet_header'] = self.packet[self.offset]
@@ -163,6 +180,10 @@ class TcpClient(PreparPacket):
 
 
     def __handshakeresponsepacket(self):
+        """
+        组装Protocol::HandshakeResponse数据包
+        :return:
+        """
         client_flag = 0
         client_flag |= CAPABILITIES
         if self.database:
@@ -236,7 +257,8 @@ class TcpClient(PreparPacket):
 
 
         print(self.column_info)
-        print(self.values)
+        for row in self.values:
+            print(row)
 
 
     def __unpack_values(self,packet):
@@ -306,16 +328,30 @@ class TcpClient(PreparPacket):
 
     def __command_prepare(self):
         self.next_seq_id = 0
-        sql = 'select table_name,table_schema,data_length from tables limit 10'
+        sql = 'select * from tables'
         _com_packet = self.COM_Query(sql)
         com_packet = self.Prepar_head(len(_com_packet),self.next_seq_id) + _com_packet
         self.client.send(com_packet)
-        self.__recv_data()
+        self.__recv_data(result=True)
         self.__unpack_text_packet()
 
 
-    def __recv_data(self):
-        self.packet = self.client.recv(self.BUFSIZ)
+    def __recv_data(self,result=None):
+        _packet = b''
+        self.packet = b''
+        state = 0
+        while 1:
+            try:
+                _packet = self.client.recv(self.BUFSIZ)
+                self.packet += _packet
+                if result is None:
+                    break
+                state = 0
+            except:
+                state += 1
+                if state >=3:
+                    break
+
         self.header()
 
 
@@ -328,5 +364,3 @@ class TcpClient(PreparPacket):
 
 with closing(TcpClient('192.168.10.12:3306','root','root','information_schema')) as tcpclient:
     tcpclient.Send()
-
-
