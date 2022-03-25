@@ -150,6 +150,7 @@ class PreparPacket(object):
             if database:
                 response_packet += database.encode()
             response_packet += b'\0'
+
         if server_packet_info['capability_flags'] & CLIENT_PLUGIN_AUTH:
             response_packet += b'' + b'\0'
         if server_packet_info['capability_flags'] & CLIENT_CONNECT_ATTRS:
@@ -237,7 +238,7 @@ class UnpackPacket(PreparPacket):
         if server_packet_info['capability_flags'] & PLUGIN_AUTH and len(packet) - 4 >= offset:
             _s_end = packet.find(b'\0',offset)
             server_packet_info['auth_plugin_name'] = packet[offset:_s_end]
-
+        print(server_packet_info)
         return server_packet_info
 
     def unpack_text_values(self,packet,column_info,payload_length):
@@ -293,6 +294,7 @@ class UnpackPacket(PreparPacket):
                 values.append(struct.unpack('<I', packet[offset:offset + 4])[0])
                 offset += 4
             elif cols_type[i] == 0x08:
+                print(packet[offset:offset+8])
                 values.append(struct.unpack('<Q', packet[offset:offset+8])[0])
                 offset += 8
 
@@ -587,9 +589,10 @@ class TcpClient(UnpackPacket):
 
 
 # prepare语句执行
-sql = 'select * from information_schema.tables where table_schema=?'
+#sql = 'select * from information_schema.tables where table_schema=? limit 1'
+sql = 'select * from tables'
 values = {'table_schema':'information_schema'}
-with closing(TcpClient('192.168.10.12:3306','root','root','',sql,values,'pre')) as tcpclient:
+with closing(TcpClient('127.0.0.1:3306','root','root','information_schema',sql,values,'')) as tcpclient:
     tcpclient.Send()
 
 # 语句直接执行

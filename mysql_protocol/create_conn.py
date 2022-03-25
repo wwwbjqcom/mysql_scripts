@@ -55,6 +55,7 @@ class TcpClient:
         self.offset = 0
         self.payload_length = self.packet[2] << 16 | self.packet[1] << 8 | self.packet[0]
         self.sequence_id = self.packet[3]
+        print(self.payload_length, self.sequence_id)
         self.offset += 4
 
     def check_packet(self):
@@ -119,6 +120,9 @@ class TcpClient:
         PLUGIN_AUTH = 1 << 19
         #数据包内容
         self.server_packet_info['packet_header'] = self.packet[self.offset]
+        print(self.server_packet_info['packet_header'])
+        a = self.payload_length -1-2
+        print(struct.unpack('<H{}s'.format(a), self.packet[self.offset+1:]))
         self.offset += 1
 
         _s_end = self.packet.find(b'\0', self.offset)
@@ -205,7 +209,7 @@ class TcpClient:
         self.client.close()
 
 
-with closing(TcpClient('192.168.10.12:3306','root','root','sys')) as tcpclient:
+with closing(TcpClient('192.200.1.101:3306','wang','wang@123','sys')) as tcpclient:
     tcpclient.Send()
 
 
